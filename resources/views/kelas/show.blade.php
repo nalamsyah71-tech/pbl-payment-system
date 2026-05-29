@@ -1,0 +1,77 @@
+@extends('layouts.app')
+@section('title', 'Detail Kelas')
+@section('breadcrumb')
+    <a href="{{ route('kelas.index') }}" class="hover:text-gray-700">Kelas</a>
+    <span class="mx-2">/</span><span class="font-medium text-gray-800">Detail</span>
+@endsection
+@section('content')
+<div class="space-y-5">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-gray-900">Detail Kelas</h1>
+            <p class="text-sm text-gray-500 mt-0.5">{{ $kela->nama_kelas }}</p>
+        </div>
+        <div class="flex gap-2">
+            {{-- PERBAIKAN: gunakan $kela dan parameter 'kela' --}}
+            <a href="{{ route('kelas.edit', ['kela' => $kela->id]) }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Edit Kelas</a>
+            <a href="{{ route('peserta.create', ['kelas_id' => $kela->id]) }}" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700">+ Tambah Peserta</a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h2 class="font-semibold text-gray-800 text-sm border-b pb-3 mb-4">Informasi Kelas</h2>
+            <div class="space-y-3">
+                <div class="flex"><span class="w-32 text-gray-500 text-sm">Pelatihan</span><span class="text-gray-800">{{ $kela->pelatihan->nama }}</span></div>
+                <div class="flex"><span class="w-32 text-gray-500 text-sm">Kejuruan</span><span class="text-gray-800">{{ $kela->pelatihan->kejuruan->nama }}</span></div>
+                <div class="flex"><span class="w-32 text-gray-500 text-sm">Periode</span><span class="text-gray-800">{{ \Carbon\Carbon::parse($kela->tgl_mulai)->format('d/m/Y') }} - {{ \Carbon\Carbon::parse($kela->tgl_selesai)->format('d/m/Y') }}</span></div>
+                <div class="flex"><span class="w-32 text-gray-500 text-sm">Hari Efektif</span><span class="text-gray-800 font-semibold">{{ number_format($kela->hari_efektif) }} hari</span></div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h2 class="font-semibold text-gray-800 text-sm border-b pb-3 mb-4">MAK (Mata Anggaran Kegiatan)</h2>
+            <div class="space-y-3">
+                <div class="flex"><span class="w-28 text-gray-500 text-sm">MAK Pulsa</span><span class="font-mono text-xs text-gray-700">{{ $kela->mak_pulsa ?? '-' }}</span></div>
+                <div class="flex"><span class="w-28 text-gray-500 text-sm">MAK Asuransi</span><span class="font-mono text-xs text-gray-700">{{ $kela->mak_asuransi ?? '-' }}</span></div>
+                <div class="flex"><span class="w-28 text-gray-500 text-sm">MAK Uang Saku</span><span class="font-mono text-xs text-gray-700">{{ $kela->mak_uang_saku ?? '-' }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="font-semibold text-gray-800 text-sm">Daftar Peserta ({{ $kela->pesertas->count() }} peserta)</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-xs text-gray-500 font-semibold uppercase">
+                        <th class="px-4 py-2.5 text-left">No</th>
+                        <th class="px-4 py-2.5 text-left">NIK</th>
+                        <th class="px-4 py-2.5 text-left">Nama</th>
+                        <th class="px-4 py-2.5 text-left">No HP</th>
+                        <th class="px-4 py-2.5 text-right">Hari Hadir</th>
+                        <th class="px-4 py-2.5 text-center w-20">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($kela->pesertas as $p)
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-2.5 text-gray-500">{{ $loop->iteration }}</td>
+                        <td class="px-4 py-2.5 font-mono text-xs text-gray-600">{{ $p->nik }}</td>
+                        <td class="px-4 py-2.5 font-medium text-gray-900">{{ $p->nama }}</td>
+                        <td class="px-4 py-2.5 text-gray-500">{{ $p->no_hp }}</td>
+                        <td class="px-4 py-2.5 text-right font-semibold">{{ $p->hari_kehadiran }} hari</td>
+                        <td class="px-4 py-2.5 text-center">
+                            <a href="{{ route('peserta.edit', $p) }}" class="text-blue-600 hover:text-blue-800">Edit</a>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Belum ada peserta</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+@endsection

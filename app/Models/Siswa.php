@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Siswa extends Model
+{
+    protected $table = 'siswa';
+    
+    protected $fillable = [
+        'nama', 'nis', 'kelas', 'alamat', 'no_hp'
+    ];
+    
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+}
