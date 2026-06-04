@@ -11,9 +11,4 @@ class Siswa extends Model
     protected $fillable = [
         'nama', 'nis', 'kelas', 'alamat', 'no_hp'
     ];
-    
-    public function payments()
-    {
-        return $this->hasMany(Payment::class);
-    }
 }

@@ -2,33 +2,39 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PembayaranUangSaku extends Model
 {
-    use HasFactory;
-
+    const TARIF_PER_HARI = 20000;
+    
+    protected $table = 'pembayaran_uang_sakus';
+    
     protected $fillable = [
-        'kelas_id',
         'no_kuitansi',
-        'tgl_spby',
+        'kelas_id',
+        'peserta_id',
         'total_uang',
-        'detail_peserta',
+        'tgl_spby',
+        'hari_kehadiran',
+        'keterangan',
+        'detail_peserta'
     ];
 
     protected $casts = [
-        'tgl_spby'       => 'date',
-        'detail_peserta' => 'array',
-        'total_uang'     => 'decimal:2',
+        'tgl_spby' => 'date',
+        'total_uang' => 'decimal:2',
+        'hari_kehadiran' => 'integer',
+        'detail_peserta' => 'array'
     ];
 
-    // Tarif uang saku per hari
-    const TARIF_PER_HARI = 20000;
-
-    public function kelas(): BelongsTo
+    public function kelas()
     {
         return $this->belongsTo(Kelas::class);
+    }
+
+    public function peserta()
+    {
+        return $this->belongsTo(Peserta::class, 'peserta_id');
     }
 }

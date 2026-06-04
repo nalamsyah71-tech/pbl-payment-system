@@ -5,11 +5,12 @@ namespace Database\Seeders;
 use App\Models\Kejuruan;
 use App\Models\Kelas;
 use App\Models\Pelatihan;
-use App\Models\Peserta;
+use App\Models\Peserta;  // Ganti Pesertas jadi Peserta
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
+    
     public function run(): void
     {
         // =================== KEJURUAN ===================
