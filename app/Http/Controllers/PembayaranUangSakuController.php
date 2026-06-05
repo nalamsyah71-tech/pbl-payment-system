@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -10,6 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class PembayaranUangSakuController extends Controller
@@ -24,9 +25,9 @@ class PembayaranUangSakuController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('no_kuitansi', 'like', "%{$search}%")
-                  ->orWhereHas('peserta', fn($p) => $p->where('nama', 'like', "%{$search}%"));
+                  ->orWhereHas('peserta', fn ($p) => $p->where('nama', 'like', "%{$search}%"));
             });
         }
 
@@ -47,11 +48,9 @@ class PembayaranUangSakuController extends Controller
         $request->validate([
             'kelas_id'       => 'required|exists:kelas,id',
             'peserta_id'     => 'required|exists:pesertas,id',
-            'no_kuitansi'    => 'required|string|max:100|unique:pembayaran_uang_sakus,no_kuitansi',
             'tgl_spby'       => 'required|date',
             'hari_kehadiran' => 'required|integer|min:1|max:31',
             'total_uang'     => 'required|numeric|min:0',
-            'detail_peserta' => 'required',
         ]);
 
         $peserta = Peserta::findOrFail($request->peserta_id);
@@ -64,13 +63,20 @@ class PembayaranUangSakuController extends Controller
             'nominal'        => $request->total_uang,
         ]];
 
+        $no_kuitansi = DB::transaction(function () {
+            $last    = PembayaranUangSaku::lockForUpdate()->orderBy('id', 'desc')->first();
+            $lastNum = $last ? intval(substr($last->no_kuitansi, -4)) : 0;
+            return 'US/' . date('Ymd') . '/' . str_pad($lastNum + 1, 4, '0', STR_PAD_LEFT);
+        });
+
         PembayaranUangSaku::create([
             'kelas_id'       => $request->kelas_id,
             'peserta_id'     => $request->peserta_id,
-            'no_kuitansi'    => $request->no_kuitansi,
+            'no_kuitansi'    => $no_kuitansi,
             'tgl_spby'       => $request->tgl_spby,
             'total_uang'     => $request->total_uang,
             'hari_kehadiran' => $request->hari_kehadiran,
+            'keterangan'     => $request->keterangan,
             'detail_peserta' => json_encode($detailPeserta),
         ]);
 
@@ -84,6 +90,48 @@ class PembayaranUangSakuController extends Controller
         return view('pembayaran.uang_saku.show', compact('pembayaranUangSaku'));
     }
 
+    public function edit(PembayaranUangSaku $pembayaranUangSaku): View
+    {
+        $pembayaranUangSaku->load('kelas', 'peserta');
+        $kelasList   = Kelas::with('pelatihan')->orderBy('nama_kelas')->get();
+        $pesertaList = Peserta::where('kelas_id', $pembayaranUangSaku->kelas_id)->orderBy('nama')->get();
+        return view('pembayaran.uang_saku.edit', compact('pembayaranUangSaku', 'kelasList', 'pesertaList'));
+    }
+
+    public function update(Request $request, PembayaranUangSaku $pembayaranUangSaku): RedirectResponse
+    {
+        $request->validate([
+            'kelas_id'       => 'required|exists:kelas,id',
+            'peserta_id'     => 'required|exists:pesertas,id',
+            'tgl_spby'       => 'required|date',
+            'hari_kehadiran' => 'required|integer|min:1|max:31',
+            'total_uang'     => 'required|numeric|min:0',
+        ]);
+
+        $peserta = Peserta::findOrFail($request->peserta_id);
+
+        $detailPeserta = [[
+            'id'             => $peserta->id,
+            'nama'           => $peserta->nama,
+            'no_hp'          => $peserta->no_hp,
+            'hari_kehadiran' => $request->hari_kehadiran,
+            'nominal'        => $request->total_uang,
+        ]];
+
+        $pembayaranUangSaku->update([
+            'kelas_id'       => $request->kelas_id,
+            'peserta_id'     => $request->peserta_id,
+            'tgl_spby'       => $request->tgl_spby,
+            'total_uang'     => $request->total_uang,
+            'hari_kehadiran' => $request->hari_kehadiran,
+            'keterangan'     => $request->keterangan,
+            'detail_peserta' => json_encode($detailPeserta),
+        ]);
+
+        return redirect()->route('pembayaran-uang-saku.show', $pembayaranUangSaku)
+            ->with('success', 'Data pembayaran uang saku berhasil diperbarui.');
+    }
+
     public function destroy(PembayaranUangSaku $pembayaranUangSaku): RedirectResponse
     {
         $pembayaranUangSaku->delete();
@@ -94,8 +142,7 @@ class PembayaranUangSakuController extends Controller
     public function pdf(PembayaranUangSaku $pembayaranUangSaku)
     {
         $pembayaranUangSaku->load('kelas.pelatihan.kejuruan', 'peserta');
-        $pdf = Pdf::loadView('pdf.spby-uang-saku', compact('pembayaranUangSaku'))
-            ->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView('pdf.spby-uang-saku', compact('pembayaranUangSaku'))->setPaper('a4', 'portrait');
         $safeFilename = str_replace(['/', '\\'], '-', $pembayaranUangSaku->no_kuitansi);
         return $pdf->stream('SPPBy-UangSaku-' . $safeFilename . '.pdf');
     }
@@ -107,30 +154,18 @@ class PembayaranUangSakuController extends Controller
         return Excel::download(new UangSakuExport($pembayaranUangSaku), $filename);
     }
 
-    /**
-     * PDF per kelas — menggunakan data pembayaran AKTUAL.
-     * FIX: pakai route model binding (Kelas $kelas) bukan ($kelasId).
-     * FIX: pakai blade view bukan raw HTML.
-     * FIX: pakai data payment nyata, bukan peserta list dari kelas.
-     */
     public function pdfByKelas(Kelas $kelas)
     {
         $kelas->load('pelatihan.kejuruan');
-
-        // Ambil semua pembayaran uang saku untuk kelas ini
-        $pembayaranList = PembayaranUangSaku::with('peserta')
-            ->where('kelas_id', $kelas->id)
-            ->orderBy('tgl_spby')
-            ->get();
-
+        $pembayaranList   = PembayaranUangSaku::with('peserta')->where('kelas_id', $kelas->id)->orderBy('tgl_spby')->get();
         $totalKeseluruhan = $pembayaranList->sum('total_uang');
 
         $data = [
-            'kelas'           => $kelas,
-            'pelatihan'       => $kelas->pelatihan,
-            'kejuruan'        => $kelas->pelatihan->kejuruan ?? null,
-            'pembayaranList'  => $pembayaranList,
-            'tanggal_cetak'   => now(),
+            'kelas'            => $kelas,
+            'pelatihan'        => $kelas->pelatihan,
+            'kejuruan'         => $kelas->pelatihan->kejuruan ?? null,
+            'pembayaranList'   => $pembayaranList,
+            'tanggal_cetak'    => now(),
             'totalKeseluruhan' => $totalKeseluruhan,
         ];
 
@@ -139,18 +174,10 @@ class PembayaranUangSakuController extends Controller
         return $pdf->stream($filename);
     }
 
-    /**
-     * Excel per kelas — menggunakan data pembayaran AKTUAL.
-     * FIX: gunakan $kelas->pembayaranUangSakus() bukan ->peserta.
-     */
     public function excelByKelas(Kelas $kelas)
     {
         $kelas->load('pelatihan.kejuruan');
-
-        $pembayaranList = PembayaranUangSaku::with('peserta')
-            ->where('kelas_id', $kelas->id)
-            ->orderBy('tgl_spby')
-            ->get();
+        $pembayaranList = PembayaranUangSaku::with('peserta')->where('kelas_id', $kelas->id)->orderBy('tgl_spby')->get();
 
         $rows = $pembayaranList->map(function ($item, $index) {
             return [
@@ -169,16 +196,14 @@ class PembayaranUangSakuController extends Controller
         $filename = 'Daftar-UangSaku-Kelas-' . str_replace(['/', '\\'], '-', $kelas->nama_kelas) . '.xlsx';
 
         return Excel::download(
-            new class($rows, $kelas) implements
+            new class ($rows, $kelas) implements
                 \Maatwebsite\Excel\Concerns\FromArray,
                 \Maatwebsite\Excel\Concerns\WithHeadings,
                 \Maatwebsite\Excel\Concerns\WithTitle,
                 \Maatwebsite\Excel\Concerns\WithEvents
             {
                 public function __construct(private array $data, private Kelas $kelas) {}
-
-                public function array(): array  { return $this->data; }
-
+                public function array(): array { return $this->data; }
                 public function headings(): array {
                     return [
                         ['DAFTAR PENERIMA UANG SAKU'],
@@ -188,25 +213,20 @@ class PembayaranUangSakuController extends Controller
                         ['NO', 'NO. KUITANSI', 'NAMA PESERTA', 'NIK', 'NO HP', 'HARI HADIR', 'TARIF/HARI', 'TGL PEMBAYARAN', 'TOTAL (Rp)'],
                     ];
                 }
-
                 public function title(): string { return 'Uang Saku - ' . $this->kelas->nama_kelas; }
-
                 public function registerEvents(): array {
                     return [
                         \Maatwebsite\Excel\Events\AfterSheet::class => function (\Maatwebsite\Excel\Events\AfterSheet $e) {
-                            $sheet = $e->sheet->getDelegate();
+                            $sheet   = $e->sheet->getDelegate();
+                            $lastRow = count($this->data) + 5;
                             $sheet->mergeCells('A1:I1');
                             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
                             $sheet->getStyle('A5:I5')->getFont()->setBold(true);
-                            $lastRow = count($this->data) + 5;
-                            $total = array_sum(array_column($this->data, 'total'));
                             $sheet->setCellValue('H' . ($lastRow + 1), 'TOTAL');
-                            $sheet->setCellValue('I' . ($lastRow + 1), $total);
-                            $sheet->getStyle('H' . ($lastRow+1) . ':I' . ($lastRow+1))->getFont()->setBold(true);
-                            $sheet->getStyle('G6:I' . ($lastRow+1))->getNumberFormat()->setFormatCode('#,##0');
-                            foreach (range('A', 'I') as $col) {
-                                $sheet->getColumnDimension($col)->setAutoSize(true);
-                            }
+                            $sheet->setCellValue('I' . ($lastRow + 1), array_sum(array_column($this->data, 'total')));
+                            $sheet->getStyle('H' . ($lastRow + 1) . ':I' . ($lastRow + 1))->getFont()->setBold(true);
+                            $sheet->getStyle('G6:I' . ($lastRow + 1))->getNumberFormat()->setFormatCode('#,##0');
+                            foreach (range('A', 'I') as $col) { $sheet->getColumnDimension($col)->setAutoSize(true); }
                         }
                     ];
                 }
