@@ -2,36 +2,35 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PembayaranPulsa extends Model
 {
-    use HasFactory;
-
+    protected $table = 'pembayaran_pulsas';
+    
     protected $fillable = [
-        'kelas_id',
-        'no_kuitansi',
-        'no_sk',
-        'tgl_spby',
-        'total_uang',
-        'detail_peserta',
+        'no_kuitansi', 
+        'kelas_id', 
+        'peserta_id', 
+        'total_uang', 
+        'tgl_spby', 
+        'keterangan',
+        'detail_peserta'
     ];
-
+    
     protected $casts = [
-        'tgl_spby'       => 'date',
+        'tgl_spby' => 'date',
+        'total_uang' => 'decimal:2',
         'detail_peserta' => 'array',
-        'total_uang'     => 'decimal:2',
     ];
-
-    public function kelas(): BelongsTo
+    
+    public function kelas()
     {
         return $this->belongsTo(Kelas::class);
     }
-
-    public function payment()
+    
+    public function peserta()
     {
-        return $this->morphOne(Payment::class, 'payable');
+        return $this->belongsTo(Peserta::class, 'peserta_id');
     }
 }

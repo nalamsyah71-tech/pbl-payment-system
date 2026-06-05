@@ -1,4 +1,3 @@
-// app/Models/Payment.php
 <?php
 
 namespace App\Models;
@@ -9,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Payment extends Model
 {
     protected $fillable = [
-        'invoice_number', 'user_id', 'amount', 'paid_amount', 'status',
+        'invoice_number', 'user_id', 'peserta_id', 'amount', 'paid_amount', 'status',
         'payment_method', 'external_id', 'payment_details', 'expired_at',
         'paid_at', 'notes'
     ];
@@ -25,6 +24,11 @@ class Payment extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function peserta(): BelongsTo
+    {
+        return $this->belongsTo(Peserta::class);
     }
 
     public function markAsSuccess(): void
